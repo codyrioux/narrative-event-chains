@@ -2,6 +2,8 @@
 
 A Clojure library designed to implement the software components in Nathanael Chambers 2011 dissertation.
 
+This code is NOT currently ready for production usage. Not by a long shot.
+
 ## Usage
 
 First and foremost your data must be processed using the Stanford CoreNLP library. The easiest
@@ -19,6 +21,10 @@ Then you can run experiments at the clojure repl using:
 (use 'nlp.narrative.chains.cloze :reload-all)
 (run-cloze-experiments [file1, file2, file3])
 ```
+
+To actually utilize the library for your own purposes beyond running cloze experiments is currently a bit complicated.
+This was written when I was quite new at Clojure, as is evident from the code. It will require substantial cleanup
+before it is considered ready to be published as a library.
 
 ## License
 
