@@ -5,5 +5,6 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [org.clojure/data.xml "0.0.6"]
-                 [org.clojure/data.zip "0.1.1"]]
+                 [org.clojure/data.zip "0.1.1"]
+                 [org.clojure/math.combinatorics "0.0.4"]]
   :jvm-opts ["-Xmx1024M"])

@@ -9,6 +9,14 @@
   (:use [nlp.narrative.chains.preprocessing]
         [nlp.narrative.chains.core]))
 
+(defn get-predictions-for-chain [tuple-list chain]
+  (let [tuple-list (remove-nil-coreferences tuple-list)
+        chainsim (partial chainsim tuple-list chain)]
+    (->>
+      (unique-verb-tuples tuple-list)
+      (map #(vec [% (chainsim %)]))
+      (sort #(> (second %1) (second %2))))))
+
 (defn get-protagonist-chain-for-file [file-name]
   (let [verb-tuples (extract-verb-tuples file-name)]
     (get-protagonist verb-tuples)))
@@ -45,3 +53,4 @@
     (println (str "Average Recall " average-recall))
     (println (str "Average Score " average-score))
     results))
+

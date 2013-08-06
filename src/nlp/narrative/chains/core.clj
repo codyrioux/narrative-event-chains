@@ -4,7 +4,7 @@
    Input should be preprocessed by the Stanford CoreNLP Library, see
    https://github.com/codyrioux/narrative-event-chains/wiki/Input for specifics.
 
-   Datastructures:
+   Datas tructures:
 
    verb-tuples:
    verb-tuples are of the following form where :dependency can be :nsubj or :pobj
@@ -19,7 +19,9 @@
    A set of relations [t1, t2] that indicates t1 occurs strictly before t2.
   
    [[tuple0 tuple1 tuple2] [[t1, t2] [t0, t1]]]"
-  (:use [clojure.set]))
+  (:use [clojure.set])
+  (:require [nlp.narrative.chains.util :as util]
+            [nlp.narrative.chains.stats :as stats]))
 
 (defn remove-nil-coreferences [tuple-list]
   "Removes those elements that do not corefer to anything."
@@ -82,7 +84,8 @@
 (def total-sum-c (memoize total-sum-c))
 
 (defn p2 [tuple-list tuple-a tuple-b]
-  "Calculates the numerator for the pmi equation. Filters the list to only those items with coreferences."
+  "Calculates the numerator for the pmi equation.
+   Filters the list to only those items with coreferences."
   (let [tuple-list (filter #(not (= nil (:coreference %))) tuple-list)]
     (/ (c tuple-list tuple-a tuple-b) (total-sum-c tuple-list))))
 
@@ -99,46 +102,12 @@
 ;; Interface
 
 (defn chainsim
-  "Takes the entire verb-tuple list, a chain, and a tuple.
-   Returns the sum of PMI with each element of the chain and the specified tuple."
-  [verb-tuples chain tuple-a]
-  (let [pmi (partial pmi verb-tuples tuple-a)]
-    (reduce + (map pmi chain))))
+  "Calculates the sum of PMI (sim) with each element of the chain and the specified tuple."
+  [verb-tuples chain]
+  (reduce + (map (partial pmi verb-tuples tuple) chain)))
 
-(defn get-predictions-for-chain [tuple-list chain]
-  (let [tuple-list (remove-nil-coreferences tuple-list)
-        chainsim (partial chainsim tuple-list chain)]
-    (->>
-      (unique-verb-tuples tuple-list)
-      (map #(vec [% (chainsim %)]))
-      (sort #(> (second %1) (second %2))))))
+(defn chainsim2
+  "Calculates the sum of PMI (sim) with each element of the chain and the specified tuple."
+  [pair-counts chain]
+  (reduce + (map (partial stats/pmi pair-counts tuple) chain)))
 
-;; Clustering
-
-(defn distance
-  "The clustering distance function for agglomerative clustering."
-  [verb-tuples clustera clusterb]
-  (->>
-    (for [a clustera] (for [b clusterb] (pmi verb-tuples a b)))
-    (apply concat)
-    (reduce +)))
-
-(defn cluster
-  "Clusters the tuples into discrete chains using agglomerative clustering."
-  [verb-tuples threshold]
-  (loop 
-    [clusters (set (for [x verb-tuples] #{x}))
-     clusters-1 #{}]
-    (cond
-      (= clusters clusters-1)
-      clusters
-      :else
-      (recur
-      (map
-        #(let [clusters (difference clusters #{%})
-               distances (zipmap (map distance % clusters) clusters)
-               min-dist (reduce min (keys distances))
-               closest (distances min-dist)]
-           (if (< min-dist threshold) (union % closest) %))
-        clusters)
-        clusters))))
