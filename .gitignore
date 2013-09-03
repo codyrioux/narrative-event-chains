@@ -2,3 +2,4 @@ resources/
 target/
 .lein-repl-history
 *.swp
+.nrepl-port

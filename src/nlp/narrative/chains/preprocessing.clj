@@ -41,6 +41,19 @@
     true
     false))
 
+(defn coref->headword 
+  "Determines the headword for a provided coreference."
+  [zxml coref]
+  (let
+    [representative (first (filter #(:representative %) coref))
+     sidx (:sentence-idx representative)
+     widx (:head-idx representative)]
+    (cond
+      (is-person? zxml sidx widx)
+      "PERSON"
+      :else
+      (get-lemma zxml sidx widx))))
+
 (defn mention->hash
   "Takes an xml node representing a mention from the Stanford Parser and converts it to
    a hash more useful to us.
@@ -158,13 +171,14 @@
 ;; Interface Functions
 ;;
 
+(defn get-zxml [file] (zip/xml-zip (xml/parse file)))
+
 (defn extract-verb-tuples 
   "Takes a file name and returns a list of tuples in the form:
    {:verb word :dependency :nsubj :coreference (...)}
    for tuples of type :nsubj and :pobj for narrative event chains."
-  [file-name]
-  (let [zipped-xml (zip/xml-zip (xml/parse file-name))
-        coreferences (process-coreferences (zxml->coref-nodes zipped-xml))
+  [zipped-xml]
+  (let [coreferences (process-coreferences (zxml->coref-nodes zipped-xml))
         dependencies (apply concat (map sentence->hash (zxml->sentence-nodes zipped-xml)))]
     (->>
       (merge-corefs-onto-dependencies coreferences dependencies)
@@ -177,7 +191,8 @@
    coreferring."
   [tuples]
   (->>
-    (group-by :coreference tuples)
+    (filter (comp not nil? :coreference) tuples)
+    (group-by :coreference)
     (vals)
     (map #(map (fn [x] (dissoc x :coreference)) %))
     (map #(combo/combinations % 2))
@@ -188,12 +203,15 @@
 (defn create-type-counts
   "Converts the output of extract-verb-tuples to a map of
    [#{{:verb v1 :dependency dep1} {:verb v2 :dependency dep2}} headword] => count"
-  [tuples]
+  [zxml tuples]
   (->>
-    ;Replace each coreference value with its headword here
-    (group-by :coreference tuples)
+    (filter (comp not nil? :coreference) tuples)
+    (map #(assoc % :coreference (coref->headword zxml (:coreference %))))
+    (group-by :coreference)
     (util/fmap #(map (fn [x] (dissoc x :coreference)) %))
-    (map identity)
-    (map #())
-    ; Now we have a map headword => [all-referrers] but we want to generate all combos of [#{v1 v2} headword]
-    (reduce #(assoc %1 %2 (inc (get %1 %2 0))) {})))
+    (util/fmap #(combo/combinations % 2))
+    (util/fmap #(map set %))
+    (util/fkmap (fn [k v] (map #(vec [% k]) v)))
+    vals
+    (apply concat)
+    frequencies))
