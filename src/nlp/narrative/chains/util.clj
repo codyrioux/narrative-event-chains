@@ -23,3 +23,12 @@
         max-value (apply max (vals results))
         max-args (map first (filter #(= max-value (second %)) results))]
     (first max-args)))
+
+(defn most-frequent-n  [n coll]
+  "Returns the top n most frequent items in coll."
+  (->> coll
+       frequencies
+       (sort-by val)
+       reverse
+       (take n)
+       (map first)))

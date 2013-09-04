@@ -41,6 +41,16 @@
     true
     false))
 
+(defn get-ner
+  [zipped-xml sentence-idx word-idx]
+  (zx/xml1-> zipped-xml :document :sentences :sentence [(zx/attr= :id (str sentence-idx))]
+                    :tokens :token [(zx/attr= :id (str word-idx))] :NER zx/text))
+
+(defn get-pos
+  [zipped-xml sentence-idx word-idx]
+  (zx/xml1-> zipped-xml :document :sentences :sentence [(zx/attr= :id (str sentence-idx))]
+                    :tokens :token [(zx/attr= :id (str word-idx))] :NER zx/text))
+
 (defn coref->headword 
   "Determines the headword for a provided coreference."
   [zxml coref]
@@ -48,6 +58,9 @@
     [representative (first (filter #(:representative %) coref))
      sidx (:sentence-idx representative)
      widx (:head-idx representative)]
+    (with-meta {:word (get-lemma zxml sidx widx)}
+               {:ner (get-ner zxml sidx widx)
+                :pos (get-pos zxml sidx widx)})
     (cond
       (is-person? zxml sidx widx)
       "PERSON"

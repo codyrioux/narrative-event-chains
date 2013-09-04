@@ -13,6 +13,7 @@
 
    Ordering can be determined with the functions in the
    nlp.narrative.event.ordering namespace."
+  (:use [clojure.set])
   (:require [nlp.narrative.chains.core :as chains]
             [nlp.narrative.chains.typed :as typed]
             [nlp.narrative.chains.util :as util]
@@ -24,10 +25,12 @@
 
 (defn coref-count->verbs
   [coref-count]
-  (->>
-    (flatten (map seq coref-count))
-    (map #(dissoc % :dependency)) 
-    distinct))
+  (map :verb
+       (flatten (map seq (keys coref-count)))))
+
+(defn narrative->verbs
+  [narrative]
+  (map :verb (flatten narrative)))
 
 ;;
 ;; Core Functions
@@ -86,13 +89,13 @@
      (for [d dv] 
        (vec [{:verb v :dependency d}
              (util/argmax #(typed/chainsim'
-                         tuples
-                         type-counts
-                         lambda
-                         beta
-                         %
-                         {:verb v :dependency d})
-                      narrative)
+                             tuples
+                             type-counts
+                             lambda
+                             beta
+                             %
+                             {:verb v :dependency d})
+                          narrative)
              (apply max #(typed/chainsim'
                            tuples
                            type-counts
@@ -128,20 +131,31 @@
         (dec iter)))))
 
 (defn extract-narratives-of-size
-  [data-dir lambda beta size seed-verbs]
+  [data-dir lambda beta n size]
   (let
     [files (map #(.getPath %)  (rest  (file-seq  (clojure.java.io/file data-dir))))
      zxml-coll (map prep/get-zxml files)
      tuples-coll (apply concat (map prep/extract-verb-tuples zxml-coll))
      coref-counts (merge-with + (map prep/create-coref-counts tuples-coll))
      type-counts (merge-with + (map prep/create-type-counts zxml-coll tuples-coll))
-     verbs (coref-count->verbs coref-counts)]
-    (apply concat
-           (map 
-             (partial extract-narrative
-                      coref-counts
-                      type-counts
-                      lambda
-                      beta
-                      size)
-             seed-verbs))))
+     verbs (distinct (coref-count->verbs coref-counts))
+     seed-verbs (util/most-frequent-n n (coref-count->verbs coref-counts))]
+    (loop
+      [narratives []
+       seed-verbs (util/most-frequent-n n verbs)]
+      (cond
+        (empty? seed-verbs)
+        narratives
+        :else
+        (let
+          [next-narrative 
+           (extract-narrative
+             coref-counts
+             type-counts
+             lambda
+             beta
+             size)]
+          (recur (conj narratives next-narrative)
+                 (seq (difference
+                        (set seed-verbs)
+                        (set (flatten (map narrative->verbs next-narrative)))))))))))
