@@ -6,7 +6,7 @@
   (:require [nlp.narrative.chains.stats :as stats]
             [nlp.narrative.chains.util :as util]))
 
-(defn sim
+(defn- sim
   "Determines the similarity of two verb tuples in the context of
    a specific argument type specified by a. Lambda is a constant
    weighting factor. (Chambers found 0.8 to be optimal on his training set.)"
@@ -18,7 +18,7 @@
     (stats/log
       (get type-counts [#{tuple-a tuple-b} a] 0)))))
 
-(defn score
+(defn- score
   "Determines an argument a (type) score with the specified chain."
   [verb-tuples type-counts lambda chain a]
   (reduce + 0
@@ -27,7 +27,6 @@
               (for [d (util/after chain c)]
                 (sim verb-tuples type-counts lambda a c d))))))
 
-;; Just need to actually test chainsim' with a running example
 (defn chainsim'
   "Determines chain similarity for the tuple while taking arguments
    into consideration."

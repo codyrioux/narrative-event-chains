@@ -15,7 +15,23 @@
    nlp.narrative.event.ordering namespace."
   (:require [nlp.narrative.chains.core :as chains]
             [nlp.narrative.chains.typed :as typed]
-            [nlp.narrative.chains.util :as util]))
+            [nlp.narrative.chains.util :as util]
+            [nlp.narrative.chains.preprocessing :as prep]))
+
+;;
+;; Utility Functions
+;;
+
+(defn coref-count->verbs
+  [coref-count]
+  (->>
+    (flatten (map seq coref-count))
+    (map #(dissoc % :dependency)) 
+    distinct))
+
+;;
+;; Core Functions
+;;
 
 (def dv [:pobj :nsubj])
 
@@ -27,13 +43,13 @@
 
    Verbs are added to the schema as follows:
    max narsim(N, vj)"
-  [verb-tuples type-count lambda beta narrative v]
+  [coref-counts type-count lambda beta narrative v]
   (reduce + 
           (flatten
             (for [d dv]
               (apply max
                      (map #(typed/chainsim'
-                             verb-tuples
+                             coref-counts
                              type-count
                              lambda
                              %
@@ -87,3 +103,45 @@
     (->>
       (map (partial merge-v-onto-chain beta verb-chain-pairs) narrative)
       (concat (add-new-chains beta verb-chain-pairs)))))
+
+;;
+;; Narrative Schemas Construction Functions
+;;
+
+(defn extract-narrative
+  [coref-counts type-counts lambda beta verbs size v]
+  (loop
+    [narrative (for [d dv] [:verb v :dependency d])
+     iter size]
+    (cond
+      (= 0 iter)
+      narrative
+      :else
+      (recur 
+        (add-to-nar
+          coref-counts
+          type-counts
+          lambda
+          beta
+          narrative
+          (util/argmax (partial narsim coref-counts type-counts lambda beta narrative) verbs))
+        (dec iter)))))
+
+(defn extract-narratives-of-size
+  [data-dir lambda beta size seed-verbs]
+  (let
+    [files (map #(.getPath %)  (rest  (file-seq  (clojure.java.io/file data-dir))))
+     zxml-coll (map prep/get-zxml files)
+     tuples-coll (apply concat (map prep/extract-verb-tuples zxml-coll))
+     coref-counts (merge-with + (map prep/create-coref-counts tuples-coll))
+     type-counts (merge-with + (map prep/create-type-counts zxml-coll tuples-coll))
+     verbs (coref-count->verbs coref-counts)]
+    (apply concat
+           (map 
+             (partial extract-narrative
+                      coref-counts
+                      type-counts
+                      lambda
+                      beta
+                      size)
+             seed-verbs))))
