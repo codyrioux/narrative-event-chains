@@ -6,6 +6,19 @@
             [clojure.data.zip.xml :as zx]
             [clojure.math.combinatorics :as combo]
             [nlp.narrative.chains.util :as util]))
+
+(defn group-by-merge-meta
+  "A group-by hack that merges metadata used in coreference
+   in order to propogate that data to the final data structure."
+  [f coll] 
+  (persistent!
+   (reduce
+    (fn [ret x]
+      (let [k (f x)
+            k-meta (meta k)]
+        (assoc! ret k (conj (get ret k []) x))))
+    (transient {}) coll)))
+
 ;;
 ;; Coreference Utility Functions
 ;;
@@ -213,18 +226,39 @@
     (map set)
     (reduce #(assoc %1 %2 (inc (get %1 %2 0))) {}))) 
 
+(defn collect-meta
+  [coll]
+  (let
+    []
+    (loop
+      [pos []
+       ner []
+       coll (map #(comp meta :coreference) coll)]
+      (cond (empty? coll)
+      {:ner ner :pos pos}
+      :else
+      (recur
+        (conj pos (:pos (first coll)))
+        (conj ner (:ner (first coll)))
+        (rest coll))))))
+
 (defn create-type-counts
   "Converts the output of extract-verb-tuples to a map of
    [#{{:verb v1 :dependency dep1} {:verb v2 :dependency dep2}} headword] => count"
   [zxml tuples]
-  (->>
-    (filter (comp not nil? :coreference) tuples)
-    (map #(assoc % :coreference (coref->headword zxml (:coreference %))))
-    (group-by :coreference)
-    (util/fmap #(map (fn [x] (dissoc x :coreference)) %))
-    (util/fmap #(combo/combinations % 2))
-    (util/fmap #(map set %))
-    (util/fkmap (fn [k v] (map #(vec [% k]) v)))
-    vals
-    (apply concat)
-    frequencies))
+  (let
+    [headword-to-vs
+     (->>
+       (filter (comp not nil? :coreference) tuples)
+       (map #(assoc % :coreference (coref->headword zxml (:coreference %))))
+       (group-by (comp :word :coreference)))
+     headword-to-meta (util/fmap collect-meta headword-to-vs)]
+    (->>
+      (util/fmap #(map (fn [x] (dissoc x :coreference)) %))
+      (util/fmap #(combo/combinations % 2))
+      (util/fmap #(map set %))
+      (util/fkmap (fn [k v] (map #(vec [% k]) v)))
+      vals
+      (apply concat)
+      frequencies
+      (map #(vec [first % (with-meta (second %) (get headword-to-meta (second %)))])))))
