@@ -73,12 +73,7 @@
      widx (:head-idx representative)]
     (with-meta {:word (get-lemma zxml sidx widx)}
                {:ner (get-ner zxml sidx widx)
-                :pos (get-pos zxml sidx widx)})
-    (cond
-      (is-person? zxml sidx widx)
-      "PERSON"
-      :else
-      (get-lemma zxml sidx widx))))
+                :pos (get-pos zxml sidx widx)})))
 
 (defn mention->hash
   "Takes an xml node representing a mention from the Stanford Parser and converts it to
@@ -231,9 +226,9 @@
   (let
     []
     (loop
-      [pos []
-       ner []
-       coll (map #(comp meta :coreference) coll)]
+      [pos #{}
+       ner #{}
+       coll (map (comp meta :coreference) coll)]
       (cond (empty? coll)
       {:ner ner :pos pos}
       :else
@@ -254,11 +249,12 @@
        (group-by (comp :word :coreference)))
      headword-to-meta (util/fmap collect-meta headword-to-vs)]
     (->>
-      (util/fmap #(map (fn [x] (dissoc x :coreference)) %))
+      (util/fmap #(map (fn [x] (dissoc x :coreference)) %) headword-to-vs)
       (util/fmap #(combo/combinations % 2))
       (util/fmap #(map set %))
       (util/fkmap (fn [k v] (map #(vec [% k]) v)))
       vals
       (apply concat)
       frequencies
-      (map #(vec [first % (with-meta (second %) (get headword-to-meta (second %)))])))))
+      (map #(vec [(with-meta (first %) (headword-to-meta (second (first %)))) (second %)]))
+      (into {}))))
