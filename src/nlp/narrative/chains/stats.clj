@@ -2,7 +2,7 @@
   "Stats namespace implements some mathematical
    functions for performing calculations on the
    preprocessed verb-dependency pairs.
-   
+
    coref-counts is a map of: #{tuple-a tuple-b} => times-coreferred")
 
 (defn log [x] (java.lang.Math/log x))
@@ -26,5 +26,6 @@
 (defn pmi
   "Calculates the pointwise mutual information between the two provided tuples."
   [coref-counts tuple-a tuple-b]
-  (log (/ (+ 1 (p2 coref-counts tuple-a tuple-b))
-          (+ 1 (* (p coref-counts tuple-a) (p coref-counts tuple-b))))))
+  (if (= tuple-a tuple-b) 0
+    (log (/ (+ 1 (p2 coref-counts tuple-a tuple-b))
+            (+ 1 (* (p coref-counts tuple-a) (p coref-counts tuple-b)))))))

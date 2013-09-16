@@ -25,6 +25,5 @@
 
 (defn chainsim
   "Calculates the sum of PMI (sim) with each element of the chain and the specified tuple."
-  [pair-counts chain tuple]
-  (reduce + (map (partial stats/pmi pair-counts tuple) chain)))
-
+  [coref-counts chain tuple]
+  (reduce + (map (partial stats/pmi coref-counts tuple) chain)))

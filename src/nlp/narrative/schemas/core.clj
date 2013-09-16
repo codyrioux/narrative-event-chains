@@ -137,6 +137,7 @@
      zxml-coll (map prep/get-zxml files)
      tuples-coll (apply concat (map prep/extract-verb-tuples zxml-coll))
      coref-counts (merge-with + (map prep/create-coref-counts tuples-coll))
+     ;; We need a way to merge the meta on type-count keys
      type-counts (merge-with + (map prep/create-type-counts zxml-coll tuples-coll))
      verbs (distinct (coref-count->verbs coref-counts))
      seed-verbs (util/most-frequent-n n (coref-count->verbs coref-counts))]
