@@ -21,8 +21,8 @@
     [clusters (set (doall (for [x (seq (apply union (keys coref-counts)))] #{x})))
      clusters-1 #{}]
     (cond
-      (= clusters clusters-1) clusters
-;      (filter #(<= min-size (count %)) clusters)
+      (= clusters clusters-1)
+      (filter #(<= min-size (count %)) clusters)
       :else
       (recur
         (map

@@ -95,7 +95,7 @@
                              beta
                              %
                              {:verb v :dependency d})
-                          narrative)
+                         narrative)
              (apply max #(typed/chainsim'
                            tuples
                            type-counts
@@ -135,15 +135,15 @@
   (let
     [files (map #(.getPath %)  (rest  (file-seq  (clojure.java.io/file data-dir))))
      zxml-coll (map prep/get-zxml files)
-     tuples-coll (apply concat (map prep/extract-verb-tuples zxml-coll))
-     coref-counts (merge-with + (map prep/create-coref-counts tuples-coll))
-     ;; We need a way to merge the meta on type-count keys
-     type-counts (merge-with + (map prep/create-type-counts zxml-coll tuples-coll))
+     tuples-coll (map prep/extract-verb-tuples zxml-coll)
+     coref-counts (apply merge-with + (map prep/create-coref-counts tuples-coll))
+     type-counts (apply merge-with + (map prep/create-type-counts zxml-coll tuples-coll))
      verbs (distinct (coref-count->verbs coref-counts))
      seed-verbs (util/most-frequent-n n (coref-count->verbs coref-counts))]
     (loop
       [narratives []
        seed-verbs (util/most-frequent-n n verbs)]
+      (println "Iterating...")
       (cond
         (empty? seed-verbs)
         narratives
@@ -155,8 +155,12 @@
              type-counts
              lambda
              beta
-             size)]
+             verbs
+             size
+             (first seed-verbs))]
           (recur (conj narratives next-narrative)
                  (seq (difference
                         (set seed-verbs)
-                        (set (flatten (map narrative->verbs next-narrative)))))))))))
+                        (set (flatten (map narrative->verbs next-narrative)))))))))
+    [coref-counts type-counts verbs seed-verbs]
+    ))
