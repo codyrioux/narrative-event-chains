@@ -11,12 +11,14 @@
    a specific argument type specified by a. Lambda is a constant
    weighting factor. (Chambers found 0.8 to be optimal on his training set.)"
   [verb-tuples type-counts lambda a tuple-a tuple-b]
-  (+
-   (stats/pmi verb-tuples tuple-a tuple-b)
-   (*
-    lambda
-    (stats/log
-      (get type-counts [#{tuple-a tuple-b} a] 0)))))
+  (if
+    (= tuple-a tuple-b) 0
+    (+
+     (stats/pmi verb-tuples tuple-a tuple-b)
+     (*
+      lambda
+      (stats/log
+        (get type-counts [#{tuple-a tuple-b} a] 0.5))))))
 
 (defn- score
   "Determines an argument a (type) score with the specified chain."

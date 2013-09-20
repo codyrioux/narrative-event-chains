@@ -77,35 +77,48 @@
        chain)
     v))
 
-(defn add-new-chains
-  [beta v]
-  (filter (comp not nil?)
-          (map #(if (> beta (nth % 2)) [(first %)] nil) v)))
-
 (defn add-to-nar
-  [tuples type-counts lambda beta narrative v]
-  (let
-    [verb-chain-pairs
-     (for [d dv] 
-       (vec [{:verb v :dependency d}
-             (util/argmax #(typed/chainsim'
-                             tuples
-                             type-counts
-                             lambda
-                             beta
-                             %
-                             {:verb v :dependency d})
-                         narrative)
-             (apply max #(typed/chainsim'
-                           tuples
-                           type-counts
-                           lambda
-                           beta
-                           %
-                           {:verb v :dependency d}))]))]
-    (->>
-      (map (partial merge-v-onto-chain beta verb-chain-pairs) narrative)
-      (concat (add-new-chains beta verb-chain-pairs)))))
+  "Adds the specified {:verb v :dependency d} to the
+   narrative schema. Will not add it if it exists, and
+   will not add to a chain that already contains that verb."
+  [coref-counts type-counts lambda beta narrative tuple]
+  (cond
+    (some #{tuple} (flatten narrative)) narrative
+    :else
+    (let [filtered-narrative (filter #(not (some #{(:verb tuple)} (map :verb %))) narrative) 
+          chainmax (util/argmax
+                     #(typed/chainsim'
+                        coref-counts
+                        type-counts
+                        lambda
+                        %
+                        tuple)
+                     filtered-narrative)
+          scoremax (apply max
+                          (map #(typed/chainsim'
+                                  coref-counts
+                                  type-counts
+                                  lambda
+                                  %
+                                  tuple)
+                               filtered-narrative))]
+      (if (< beta scoremax)
+        (conj (filter #(not= chainmax %) narrative) (conj chainmax tuple))
+        (conj narrative [tuple])))))
+
+(defn add-v-to-nar
+  "Adds the verb v and all possible dependencies in dv to
+   the provided narrative. It does this one at a time in order
+   to avoid adding the same v to the same chain."
+  [coref-counts type-counts lambda beta narrative v]
+  (let [tuples (for [d dv] {:verb v :dependency d})
+        add (partial add-to-nar coref-counts type-counts lambda beta)]
+    (loop [tuples tuples
+           narrative narrative]
+      (if
+        (empty? tuples)
+        narrative
+        (recur (rest tuples) (add narrative (first tuples)))))))
 
 ;;
 ;; Narrative Schemas Construction Functions
@@ -114,26 +127,28 @@
 (defn extract-narrative
   [coref-counts type-counts lambda beta verbs size v]
   (loop
-    [narrative (for [d dv] [:verb v :dependency d])
+    [narrative (for [d dv] [{ :verb v :dependency d}])
      iter size]
     (cond
       (= 0 iter)
       narrative
       :else
       (recur 
-        (add-to-nar
+        (add-v-to-nar
           coref-counts
           type-counts
           lambda
           beta
           narrative
-          (util/argmax (partial narsim coref-counts type-counts lambda beta narrative) verbs))
+          (util/argmax
+            (partial narsim coref-counts type-counts lambda beta narrative)
+            (remove (set (map :verb (flatten narrative))) verbs)))
         (dec iter)))))
 
 (defn extract-narratives-of-size
   [data-dir lambda beta n size]
   (let
-    [files (map #(.getPath %)  (rest  (file-seq  (clojure.java.io/file data-dir))))
+    [files (take 3 (map #(.getPath %)  (rest  (file-seq  (clojure.java.io/file data-dir)))))
      zxml-coll (map prep/get-zxml files)
      tuples-coll (map prep/extract-verb-tuples zxml-coll)
      coref-counts (apply merge-with + (map prep/create-coref-counts tuples-coll))
@@ -143,7 +158,6 @@
     (loop
       [narratives []
        seed-verbs (util/most-frequent-n n verbs)]
-      (println "Iterating...")
       (cond
         (empty? seed-verbs)
         narratives
@@ -161,6 +175,4 @@
           (recur (conj narratives next-narrative)
                  (seq (difference
                         (set seed-verbs)
-                        (set (flatten (map narrative->verbs next-narrative)))))))))
-    [coref-counts type-counts verbs seed-verbs]
-    ))
+                        (set (flatten (map narrative->verbs next-narrative)))))))))))
