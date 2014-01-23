@@ -1,3 +1,8 @@
+# HC SVNT DRACONES
+A warning to all those who would proceed. This library is an atrocity, being my first serious Clojure project and Clojure being my first lisp this thing needs a major refactoring. In all likelihood it wouldn't even be up here were it not the only implementation of narrative event chains & schemas online. If you actually intend to use this library from Clojure or Java please message me, it'll motivate me to fix this thing up.
+
+You've been warned...
+
 # narrative-event-chains
 
 A Clojure library designed to implement the software components in Nathanael Chambers 2011 dissertation.
